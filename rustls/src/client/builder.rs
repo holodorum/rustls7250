@@ -12,7 +12,7 @@ use crate::error::Error;
 use crate::key_log::NoKeyLog;
 use crate::msgs::handshake::CertificateChain;
 use crate::time_provider::TimeProvider;
-use crate::versions::TLS13;
+use crate::version::TLS13;
 use crate::webpki::{self, WebPkiServerVerifier};
 use crate::{compress, verify, versions, WantsVersions};
 

@@ -444,7 +444,8 @@ pub mod internal {
         }
         pub mod enums {
             pub use crate::msgs::enums::{
-                AlertLevel, Compression, EchVersion, HpkeAead, HpkeKdf, HpkeKem, NamedGroup,
+                AlertLevel, CertificateType, Compression, EchVersion, HpkeAead, HpkeKdf, HpkeKem,
+                NamedGroup,
             };
         }
         pub mod fragmenter {
@@ -454,8 +455,8 @@ pub mod internal {
             pub use crate::msgs::handshake::{
                 CertificateChain, ClientExtension, ClientHelloPayload, DistinguishedName,
                 EchConfigContents, EchConfigPayload, HandshakeMessagePayload, HandshakePayload,
-                HpkeKeyConfig, HpkeSymmetricCipherSuite, KeyShareEntry, Random, ServerName,
-                SessionId,
+                HpkeKeyConfig, HpkeSymmetricCipherSuite, KeyShareEntry, Random, ServerExtension,
+                ServerName, SessionId,
             };
         }
         pub mod message {
@@ -467,6 +468,8 @@ pub mod internal {
             pub use crate::msgs::persist::ServerSessionValue;
         }
     }
+
+    pub use crate::tls13::key_schedule::{derive_traffic_iv, derive_traffic_key};
 
     pub mod fuzzing {
         pub use crate::msgs::deframer::fuzz_deframer;
@@ -563,7 +566,7 @@ pub mod client {
     pub use client_conn::{ClientConnection, WriteEarlyData};
     pub use ech::{EchConfig, EchGreaseConfig, EchMode, EchStatus};
     #[cfg(any(feature = "std", feature = "hashbrown"))]
-    pub use handy::ClientSessionMemoryCache;
+    pub use handy::{AlwaysResolvesClientRawPublicKeys, ClientSessionMemoryCache};
 
     /// Dangerous configuration that should be audited and used with extreme care.
     pub mod danger {
@@ -599,7 +602,7 @@ pub mod server {
     #[cfg(any(feature = "std", feature = "hashbrown"))]
     pub use handy::ResolvesServerCertUsingSni;
     #[cfg(any(feature = "std", feature = "hashbrown"))]
-    pub use handy::ServerSessionMemoryCache;
+    pub use handy::{AlwaysResolvesServerRawPublicKeys, ServerSessionMemoryCache};
     pub use server_conn::{
         Accepted, ClientHello, ProducesTickets, ResolvesServerCert, ServerConfig,
         ServerConnectionData, StoresServerSessions, UnbufferedServerConnection,
