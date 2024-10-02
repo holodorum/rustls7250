@@ -11,7 +11,7 @@ use crate::log::{debug, error, warn};
 use crate::msgs::alert::AlertMessagePayload;
 use crate::msgs::base::Payload;
 use crate::msgs::codec::Codec;
-use crate::msgs::enums::{AlertLevel, KeyUpdateRequest};
+use crate::msgs::enums::{AlertLevel, ExtensionType, KeyUpdateRequest};
 use crate::msgs::fragmenter::MessageFragmenter;
 use crate::msgs::handshake::{CertificateChain, HandshakeMessagePayload};
 use crate::msgs::message::{
@@ -24,7 +24,7 @@ use crate::suites::{PartiallyExtractedSecrets, SupportedCipherSuite};
 use crate::tls12::ConnectionSecrets;
 use crate::unbuffered::{EncryptError, InsufficientSizeError};
 use crate::vecbuf::ChunkVecBuffer;
-use crate::{quic, record_layer};
+use crate::{quic, record_layer, PeerIncompatible};
 
 /// Connection state common to both client and server connections.
 pub struct CommonState {
@@ -107,21 +107,25 @@ impl CommonState {
         !(self.may_send_application_data && self.may_receive_application_data)
     }
 
-    /// Retrieves the certificate chain used by the peer to authenticate.
+    /// Retrieves the certificate chain or the raw public key used by the peer to authenticate.
     ///
     /// The order of the certificate chain is as it appears in the TLS
     /// protocol: the first certificate relates to the peer, the
     /// second certifies the first, the third certifies the second, and
     /// so on.
     ///
+    /// When using raw public keys, the first and only element is the raw public key.
+    ///
     /// This is made available for both full and resumed handshakes.
     ///
-    /// For clients, this is the certificate chain of the server.
+    /// For clients, this is the certificate chain or the raw public key of the server.
     ///
-    /// For servers, this is the certificate chain of the client,
+    /// For servers, this is the certificate chain or the raw public key of the client,
     /// if client authentication was completed.
     ///
     /// The return value is None until this value is available.
+    ///
+    /// Note: the return type of the 'certificate', when using raw public keys is `CertificateDer<'static>` even though this should technically be a `SubjectPublicKeyInfoDer<'static>`.
     pub fn peer_certificates(&self) -> Option<&[CertificateDer<'static>]> {
         self.peer_certificates.as_deref()
     }
@@ -272,6 +276,28 @@ impl CommonState {
             );
 
         Ok(self.write_fragments(outgoing_tls, fragments))
+    }
+
+    pub(crate) fn validate_rpk_negotiation(
+        &mut self,
+        negotation_params: RawKeyNegotiationParams,
+    ) -> RawKeyNegotationResult {
+        let local_expects_rpk = negotation_params.local_expects_raw_key;
+        let peer_supports_rpk = negotation_params.peer_supports_raw_key;
+        if !local_expects_rpk && peer_supports_rpk {
+            return RawKeyNegotationResult::Err(Error::PeerIncompatible(
+                PeerIncompatible::UnsolicitedCertificateTypeExtension,
+            ));
+        }
+        if local_expects_rpk && !peer_supports_rpk {
+            return RawKeyNegotationResult::Err(Error::PeerIncompatible(
+                PeerIncompatible::IncorrectCertificateTypeExtension,
+            ));
+        }
+        if !local_expects_rpk && !peer_supports_rpk {
+            return RawKeyNegotationResult::NotNegotiated;
+        }
+        RawKeyNegotationResult::Negotiated(negotation_params.extension_type)
     }
 
     // Changing the keys must not span any fragmented handshake
@@ -885,6 +911,20 @@ enum Limit {
     #[cfg(feature = "std")]
     Yes,
     No,
+}
+
+#[derive(Debug)]
+pub(crate) enum RawKeyNegotationResult {
+    Negotiated(ExtensionType),
+    NotNegotiated,
+    Err(Error),
+}
+
+#[derive(Debug)]
+pub(super) struct RawKeyNegotiationParams {
+    pub(super) peer_supports_raw_key: bool,
+    pub(super) local_expects_raw_key: bool,
+    pub(super) extension_type: ExtensionType,
 }
 
 /// Tracking technically-allowed protocol actions

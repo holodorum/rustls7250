@@ -33,6 +33,8 @@ use crate::x509;
 ///
 /// The `KeyProvider` method `load_private_key()` is called under the hood by
 /// [`ConfigBuilder::with_single_cert()`],
+/// [`ConfigBuilder::with_client_auth_raw_key()`],
+/// [`ConfigBuilder::with_raw_key()`],
 /// [`ConfigBuilder::with_client_auth_cert()`], and
 /// [`ConfigBuilder::with_single_cert_with_ocsp()`].
 ///
@@ -45,6 +47,8 @@ use crate::x509;
 /// [`ConfigBuilder::with_single_cert()`]: crate::ConfigBuilder::with_single_cert
 /// [`ConfigBuilder::with_single_cert_with_ocsp()`]: crate::ConfigBuilder::with_single_cert_with_ocsp
 /// [`ConfigBuilder::with_client_auth_cert()`]: crate::ConfigBuilder::with_client_auth_cert
+/// [`ConfigBuilder::with_client_auth_raw_key()`]: crate::ConfigBuilder::with_client_auth_raw_key
+/// [`ConfigBuilder::with_raw_key()`]: crate::ConfigBuilder::with_raw_key
 /// [`crypto::ring::sign::any_ecdsa_type()`]: crate::crypto::ring::sign::any_ecdsa_type
 /// [`crypto::ring::sign::any_eddsa_type()`]: crate::crypto::ring::sign::any_eddsa_type
 /// [`crypto::ring::sign::any_supported_type()`]: crate::crypto::ring::sign::any_supported_type
@@ -87,9 +91,11 @@ pub trait Signer: Debug + Send + Sync {
 
 /// A packaged-together certificate chain, matching `SigningKey` and
 /// optional stapled OCSP response.
+///
+/// Note: This struct is also used to represent a raw public key, when the client/server is configured to use raw public keys instead of certificates
 #[derive(Clone, Debug)]
 pub struct CertifiedKey {
-    /// The certificate chain.
+    /// The certificate chain or raw public key.
     pub cert: Vec<CertificateDer<'static>>,
 
     /// The certified key.

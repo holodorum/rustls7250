@@ -1,12 +1,12 @@
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec};
 
-use pki_types::ServerName;
+use pki_types::{CertificateDer, ServerName};
 
 use crate::enums::SignatureScheme;
 use crate::error::Error;
 use crate::msgs::handshake::CertificateChain;
 use crate::msgs::persist;
-use crate::{client, sign, NamedGroup};
+use crate::{client, sign, InconsistentKeys, NamedGroup};
 
 /// An implementer of `ClientSessionStore` which does nothing.
 #[derive(Debug)]
@@ -236,6 +236,44 @@ impl client::ResolvesClientCert for AlwaysResolvesClientCert {
         Some(Arc::clone(&self.0))
     }
 
+    fn has_certs(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug)]
+pub(super) struct AlwaysResolvesClientRawPublicKeys(Arc<sign::CertifiedKey>);
+
+impl AlwaysResolvesClientRawPublicKeys {
+    pub(super) fn new(private_key: Arc<dyn sign::SigningKey>) -> Result<Self, Error> {
+        let public_key = private_key
+            .public_key()
+            .ok_or(Error::InconsistentKeys(InconsistentKeys::Unknown))?;
+        let public_key_as_cert = CertificateDer::from(public_key.to_vec());
+        Ok(Self(Arc::new(sign::CertifiedKey::new(
+            vec![public_key_as_cert],
+            private_key,
+        ))))
+    }
+}
+
+impl client::ResolvesClientCert for AlwaysResolvesClientRawPublicKeys {
+    fn resolve(
+        &self,
+        _root_hint_subjects: &[&[u8]],
+        _sigschemes: &[SignatureScheme],
+    ) -> Option<Arc<sign::CertifiedKey>> {
+        Some(Arc::clone(&self.0))
+    }
+
+    fn only_raw_public_keys(&self) -> bool {
+        true
+    }
+
+    /// Returns true if the resolver is ready to present an identity.
+    ///
+    /// Even though the function is called `has_certs`, it returns true
+    /// when only an RPK (Raw Public Key) is available, not an actual certificate.
     fn has_certs(&self) -> bool {
         true
     }

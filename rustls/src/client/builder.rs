@@ -163,6 +163,34 @@ impl ConfigBuilder<ClientConfig, WantsClientCert> {
         Ok(self.with_client_cert_resolver(Arc::new(resolver)))
     }
 
+    /// Sets a raw public key and matching private key for use
+    /// in client authentication.
+    ///
+    /// `key_der` is a DER-encoded private key as PKCS#1, PKCS#8, or SEC1. The
+    /// `aws-lc-rs` and `ring` [`CryptoProvider`]s support all three encodings,
+    /// but other `CryptoProviders` may not.
+    ///
+    /// This function fails if `key_der` is invalid, or if the public key cannot be retrieved from the private key.
+    ///
+    /// Note: This API is only usable for `SigningKey` implementations that can produce the corresponding public key.
+    /// Please ensure that the `CryptoProvider` you are using supports this functionality.
+    pub fn with_client_auth_raw_key(
+        self,
+        key_der: PrivateKeyDer<'static>,
+    ) -> Result<ClientConfig, Error> {
+        let private_key = self
+            .state
+            .provider
+            .key_provider
+            .load_private_key(key_der)?;
+
+        Ok(
+            self.with_client_cert_resolver(Arc::new(
+                handy::AlwaysResolvesClientRawPublicKeys::new(private_key)?,
+            )),
+        )
+    }
+
     /// Do not support client auth.
     pub fn with_no_client_auth(self) -> ClientConfig {
         self.with_client_cert_resolver(Arc::new(handy::FailResolveClientCert {}))

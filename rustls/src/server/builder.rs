@@ -88,6 +88,31 @@ impl ConfigBuilder<ServerConfig, WantsServerCert> {
         Ok(self.with_cert_resolver(Arc::new(resolver)))
     }
 
+    /// Set a single raw public key and matching private key. This
+    /// certificate and key is used for all subsequent connections,
+    /// irrespective of things like SNI hostname.
+    ///
+    /// `key_der` is a DER-encoded private key as PKCS#1, PKCS#8, or SEC1. The
+    /// `aws-lc-rs` and `ring` [`CryptoProvider`]s support all three encodings,
+    /// but other `CryptoProviders` may not.
+    ///
+    /// This function fails if `key_der` is invalid, or if the public key cannot be retrieved from the private key.
+    ///
+    /// Note: This API is only usable for `SigningKey` implementations that can produce the corresponding public key.
+    /// Please ensure that the `CryptoProvider` you are using supports this functionality.
+    pub fn with_raw_key(self, key_der: PrivateKeyDer<'static>) -> Result<ServerConfig, Error> {
+        let private_key = self
+            .state
+            .provider
+            .key_provider
+            .load_private_key(key_der)?;
+        Ok(
+            self.with_cert_resolver(Arc::new(handy::AlwaysResolvesServerRawPublicKeys::new(
+                private_key,
+            )?)),
+        )
+    }
+
     /// Sets a single certificate chain, matching private key and optional OCSP
     /// response.  This certificate and key is used for all
     /// subsequent connections, irrespective of things like SNI hostname.

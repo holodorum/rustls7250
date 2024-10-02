@@ -13,7 +13,8 @@ use zeroize::Zeroize;
 use crate::msgs::ffdhe_groups::FfdheGroup;
 use crate::sign::SigningKey;
 pub use crate::webpki::{
-    verify_tls12_signature, verify_tls13_signature, WebPkiSupportedAlgorithms,
+    verify_tls12_signature, verify_tls13_signature, verify_tls13_signature_with_spki,
+    WebPkiSupportedAlgorithms,
 };
 #[cfg(all(doc, feature = "tls12"))]
 use crate::Tls12CipherSuite;
@@ -355,7 +356,7 @@ pub trait SecureRandom: Send + Sync + Debug {
 pub trait KeyProvider: Send + Sync + Debug {
     /// Decode and validate a private signing key from `key_der`.
     ///
-    /// This is used by [`ConfigBuilder::with_client_auth_cert()`], [`ConfigBuilder::with_single_cert()`],
+    /// This is used by [`ConfigBuilder::with_client_auth_cert()`], [`ConfigBuilder::with_client_auth_raw_key()`], [`ConfigBuilder::with_single_cert()`], [`ConfigBuilder::with_raw_key()`],
     /// and [`ConfigBuilder::with_single_cert_with_ocsp()`].  The key types and formats supported by this
     /// function directly defines the key types and formats supported in those APIs.
     ///

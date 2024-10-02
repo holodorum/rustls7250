@@ -843,11 +843,13 @@ pub(crate) fn server_ech_hrr_confirmation_secret(
     )
 }
 
-pub(crate) fn derive_traffic_key(expander: &dyn HkdfExpander, aead_key_len: usize) -> AeadKey {
+/// [HKDF-Expand-Label] where the output is an AEAD key.
+pub fn derive_traffic_key(expander: &dyn HkdfExpander, aead_key_len: usize) -> AeadKey {
     hkdf_expand_label_aead_key(expander, aead_key_len, b"key", &[])
 }
 
-pub(crate) fn derive_traffic_iv(expander: &dyn HkdfExpander) -> Iv {
+/// [HKDF-Expand-Label] where the output is an IV.
+pub fn derive_traffic_iv(expander: &dyn HkdfExpander) -> Iv {
     hkdf_expand_label(expander, b"iv", &[])
 }
 
